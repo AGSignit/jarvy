@@ -1,4 +1,6 @@
 """System-level endpoints: health, status, settings, facts."""
+import traceback
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -43,3 +45,21 @@ async def list_facts() -> dict:
 async def add_fact(f: FactIn) -> dict:
     await memory.set_fact(f.key.lower(), f.value)
     return {"ok": True}
+
+
+@router.get("/debug/gemini")
+async def debug_gemini() -> dict:
+    """Temporary: test Gemini call and return raw error if any."""
+    from google import genai
+    from google.genai import types
+    settings = get_settings()
+    try:
+        client = genai.Client(api_key=settings.gemini_api_key)
+        response = await client.aio.models.generate_content(
+            model=settings.gemini_model,
+            contents=[types.Content(role="user", parts=[types.Part(text="say hi")])],
+            config=types.GenerateContentConfig(temperature=0.7, max_output_tokens=50),
+        )
+        return {"ok": True, "reply": response.text}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "trace": traceback.format_exc()}
