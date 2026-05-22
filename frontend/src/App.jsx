@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
+import { Volume2, VolumeX } from 'lucide-react'
 import ChatPanel from './components/ChatPanel'
 import Sidebar from './components/Sidebar'
 import StatusBar from './components/StatusBar'
@@ -8,7 +9,7 @@ import { useBrowserVoice } from './hooks/useBrowserVoice'
 import { api } from './lib/api'
 
 export default function App() {
-  const { listening, transcript, supported, start, stop, speak, setTranscript } = useBrowserVoice()
+  const { listening, speaking, transcript, supported, ttsEnabled, start, stop, speak, toggleTts, setTranscript } = useBrowserVoice()
   const [pendingTranscript, setPendingTranscript] = useState('')
   const [thinking, setThinking] = useState(false)
   const [greeting, setGreeting] = useState('')
@@ -76,12 +77,20 @@ export default function App() {
 
         {/* Right: voice orb + tips */}
         <div className="glass rounded-xl p-6 flex flex-col items-center justify-between min-h-0">
-          <div className="text-xs uppercase tracking-widest text-white/50 font-mono self-start">
-            voice
+          <div className="flex items-center justify-between w-full">
+            <div className="text-xs uppercase tracking-widest text-white/50 font-mono">voice</div>
+            <button
+              onClick={toggleTts}
+              title={ttsEnabled ? 'Mute TTS' : 'Unmute TTS'}
+              className="text-white/40 hover:text-white/80 transition-colors"
+            >
+              {ttsEnabled ? <Volume2 size={14} /> : <VolumeX size={14} className="text-jarvy-danger/60" />}
+            </button>
           </div>
           <VoiceOrb
             listening={listening}
             thinking={thinking}
+            speaking={speaking}
             onClick={toggleMic}
             disabled={!supported}
           />
