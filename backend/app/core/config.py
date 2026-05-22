@@ -43,8 +43,11 @@ class Settings(BaseSettings):
     # Memory
     context_turns: int = 12
 
+    # Supabase
+    supabase_url: str = ""
+    supabase_key: str = ""
+
     # Paths (not from env)
-    db_path: str = str(DATA_DIR / "jarvy.db")
     log_path: str = str(LOGS_DIR / "jarvy.log")
 
 

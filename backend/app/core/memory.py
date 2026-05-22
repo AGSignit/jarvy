@@ -1,99 +1,88 @@
-"""Memory manager. Handles conversation history, facts, and tags."""
+"""Memory manager. Calls Supabase REST API directly via httpx."""
 from typing import Optional
 
+import httpx
+
 from app.core.config import get_settings
-from app.core.database import get_db
+from app.core.database import get_base, get_headers
 from app.core.logger import get_logger
 
 log = get_logger(__name__)
 
 
 class MemoryManager:
-    """Persists and recalls conversation history and user facts."""
 
     async def save_message(self, role: str, content: str, tag: str = "chat") -> int:
-        db = await get_db()
-        try:
-            cursor = await db.execute(
-                "INSERT INTO conversations (role, content, tag) VALUES (?, ?, ?)",
-                (role, content, tag),
+        async with httpx.AsyncClient() as c:
+            r = await c.post(
+                f"{get_base()}/conversations",
+                headers=get_headers({"Prefer": "return=representation"}),
+                json={"role": role, "content": content, "tag": tag},
             )
-            await db.commit()
-            return cursor.lastrowid or 0
-        finally:
-            await db.close()
+            r.raise_for_status()
+            return r.json()[0]["id"]
 
     async def recent_messages(self, limit: Optional[int] = None) -> list[dict]:
         settings = get_settings()
         limit = limit or settings.context_turns * 2
-        db = await get_db()
-        try:
-            async with db.execute(
-                "SELECT role, content, tag, created_at FROM conversations "
-                "ORDER BY id DESC LIMIT ?",
-                (limit,),
-            ) as cursor:
-                rows = await cursor.fetchall()
-            return [dict(r) for r in reversed(rows)]
-        finally:
-            await db.close()
+        async with httpx.AsyncClient() as c:
+            r = await c.get(
+                f"{get_base()}/conversations",
+                headers=get_headers(),
+                params={"select": "role,content,tag,created_at", "order": "id.desc", "limit": str(limit)},
+            )
+            r.raise_for_status()
+        return list(reversed(r.json()))
 
     async def all_messages(self, limit: int = 200) -> list[dict]:
-        db = await get_db()
-        try:
-            async with db.execute(
-                "SELECT id, role, content, tag, created_at FROM conversations "
-                "ORDER BY id DESC LIMIT ?",
-                (limit,),
-            ) as cursor:
-                rows = await cursor.fetchall()
-            return [dict(r) for r in rows]
-        finally:
-            await db.close()
+        async with httpx.AsyncClient() as c:
+            r = await c.get(
+                f"{get_base()}/conversations",
+                headers=get_headers(),
+                params={"select": "id,role,content,tag,created_at", "order": "id.desc", "limit": str(limit)},
+            )
+            r.raise_for_status()
+        return r.json()
 
     async def clear(self) -> None:
-        db = await get_db()
-        try:
-            await db.execute("DELETE FROM conversations")
-            await db.commit()
-        finally:
-            await db.close()
+        async with httpx.AsyncClient() as c:
+            r = await c.delete(
+                f"{get_base()}/conversations",
+                headers=get_headers(),
+                params={"id": "gte.0"},
+            )
+            r.raise_for_status()
         log.info("Conversation history cleared")
 
     async def set_fact(self, key: str, value: str) -> None:
-        db = await get_db()
-        try:
-            await db.execute(
-                "INSERT INTO facts (key, value) VALUES (?, ?) "
-                "ON CONFLICT(key) DO UPDATE SET value=excluded.value, "
-                "updated_at=CURRENT_TIMESTAMP",
-                (key, value),
+        async with httpx.AsyncClient() as c:
+            r = await c.post(
+                f"{get_base()}/facts",
+                headers=get_headers({"Prefer": "resolution=merge-duplicates,return=minimal"}),
+                json={"key": key, "value": value},
             )
-            await db.commit()
-        finally:
-            await db.close()
+            r.raise_for_status()
 
     async def get_fact(self, key: str) -> Optional[str]:
-        db = await get_db()
-        try:
-            async with db.execute(
-                "SELECT value FROM facts WHERE key = ?", (key,)
-            ) as cursor:
-                row = await cursor.fetchone()
-            return row["value"] if row else None
-        finally:
-            await db.close()
+        async with httpx.AsyncClient() as c:
+            r = await c.get(
+                f"{get_base()}/facts",
+                headers=get_headers(),
+                params={"select": "value", "key": f"eq.{key}"},
+            )
+            r.raise_for_status()
+        data = r.json()
+        return data[0]["value"] if data else None
 
     async def all_facts(self) -> list[dict]:
-        db = await get_db()
-        try:
-            async with db.execute(
-                "SELECT key, value, updated_at FROM facts ORDER BY updated_at DESC"
-            ) as cursor:
-                rows = await cursor.fetchall()
-            return [dict(r) for r in rows]
-        finally:
-            await db.close()
+        async with httpx.AsyncClient() as c:
+            r = await c.get(
+                f"{get_base()}/facts",
+                headers=get_headers(),
+                params={"select": "key,value,updated_at", "order": "updated_at.desc"},
+            )
+            r.raise_for_status()
+        return r.json()
 
 
 memory = MemoryManager()

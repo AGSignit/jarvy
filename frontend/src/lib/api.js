@@ -1,5 +1,5 @@
-// Tiny API client. Uses Vite proxy at /api → backend.
-const BASE = '/api'
+// Uses VITE_API_URL (Render URL) in production, Vite proxy in dev.
+const BASE = import.meta.env.VITE_API_URL || '/api'
 
 async function jsonFetch(path, opts = {}) {
   const res = await fetch(BASE + path, {
