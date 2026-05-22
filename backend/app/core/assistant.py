@@ -6,6 +6,7 @@ Flow:
       → if no plugin matches, Gemini with conversation context + facts
       → if Gemini unreachable, offline fallback
 """
+import asyncio
 import datetime as dt
 from typing import Optional
 
@@ -59,6 +60,10 @@ class AssistantCore:
         system_prompt = await self._build_system_prompt()
         history = await memory.recent_messages()
 
+        # Gemini requires conversation to start with a user turn
+        while history and history[0]["role"] != "user":
+            history = history[1:]
+
         # Build contents list: history + current message
         contents = []
         for h in history:
@@ -68,20 +73,24 @@ class AssistantCore:
                 contents.append(types.Content(role="model", parts=[types.Part(text=h["content"])]))
         contents.append(types.Content(role="user", parts=[types.Part(text=user_text)]))
 
-        try:
-            response = await client.aio.models.generate_content(
-                model=settings.gemini_model,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    temperature=0.7,
-                    max_output_tokens=600,
-                ),
-            )
-            return (response.text or "").strip()
-        except Exception as e:
-            log.warning("Gemini call failed: %s", e)
-            return self._offline_reply(user_text)
+        for attempt in range(2):
+            try:
+                response = await client.aio.models.generate_content(
+                    model=settings.gemini_model,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        temperature=0.7,
+                        max_output_tokens=600,
+                    ),
+                )
+                return (response.text or "").strip()
+            except Exception as e:
+                log.warning("Gemini call failed (attempt %d/2): %s", attempt + 1, e)
+                if attempt == 0:
+                    await asyncio.sleep(1)
+
+        return self._offline_reply(user_text)
 
     def _offline_reply(self, text: str) -> str:
         t = text.lower().strip()

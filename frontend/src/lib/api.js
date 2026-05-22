@@ -1,6 +1,11 @@
 // Uses VITE_API_URL (Render URL) in production, Vite proxy in dev.
 const BASE = import.meta.env.VITE_API_URL || '/api'
 
+// Keep Render free-tier warm (spins down after 15 min)
+const _ping = () => fetch(BASE + '/health', { method: 'GET' }).catch(() => {})
+_ping()
+setInterval(_ping, 8 * 60 * 1000)
+
 async function jsonFetch(path, opts = {}) {
   const res = await fetch(BASE + path, {
     headers: { 'Content-Type': 'application/json' },

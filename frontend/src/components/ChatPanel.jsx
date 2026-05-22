@@ -34,6 +34,7 @@ export default function ChatPanel({ pendingTranscript, onResponse, onThinking })
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const scrollRef = useRef(null)
+  const lastSentTranscript = useRef('')
 
   // Load history
   useEffect(() => {
@@ -43,9 +44,10 @@ export default function ChatPanel({ pendingTranscript, onResponse, onThinking })
     }).catch(() => {})
   }, [])
 
-  // Auto-submit voice transcript
+  // Auto-submit voice transcript (ref guard prevents StrictMode double-send)
   useEffect(() => {
-    if (pendingTranscript) {
+    if (pendingTranscript && pendingTranscript !== lastSentTranscript.current) {
+      lastSentTranscript.current = pendingTranscript
       send(pendingTranscript)
     }
     // eslint-disable-next-line
