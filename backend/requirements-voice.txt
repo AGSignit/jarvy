@@ -1,0 +1,9 @@
+# Optional Python voice module. Install only if you want server-side voice.
+# Requires system deps:
+#   Ubuntu/Debian:  sudo apt install portaudio19-dev espeak ffmpeg
+#   macOS:          brew install portaudio espeak
+#   Windows:        pip should pull prebuilt wheels; if PyAudio fails,
+#                   install from https://www.lfd.uci.edu/~gohlke/pythonlibs/
+pyttsx3==2.98
+SpeechRecognition==3.10.4
+PyAudio==0.2.14

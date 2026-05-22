@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Jarvy data
+backend/data/*.db
+backend/logs/*.log
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
